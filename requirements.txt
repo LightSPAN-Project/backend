@@ -1,0 +1,15 @@
+certifi==2024.2.2
+charset-normalizer==3.3.2
+idna==3.7
+numpy==1.26.4
+packaging==24.0
+pandas==2.2.2
+plotly
+python-dateutil==2.9.0.post0
+pytz==2024.1
+requests
+six==1.16.0
+tenacity==8.2.3
+tzdata==2024.1
+urllib3==2.2.1
+aiohttp==3.10.3

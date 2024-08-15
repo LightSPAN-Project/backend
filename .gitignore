@@ -1,0 +1,10 @@
+backend_data/backend_.db
+backend_data/backend.db
+credentials.txt
+.DS_Store
+__pycache__/get_patient_actigraphy_data.cpython-312.pyc
+__pycache__/server.cpython-312.pyc
+utils/__pycache__/__init__.cpython-312.pyc
+utils/__pycache__/actigraphy_utils.cpython-312.pyc
+utils/__pycache__/api_requests.cpython-312.pyc
+utils/__pycache__/database_utils.cpython-312.pyc
