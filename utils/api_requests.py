@@ -16,7 +16,6 @@ def read_api_credentials(credentials):
 def get_headers():
     api_key, token = read_api_credentials(CREDENTIALS_FILE)
     headers = {"x-api-key": api_key, "Authorization": f"Bearer {token}"}
-    print(f"headers: {headers}")
     return headers
 
 
