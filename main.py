@@ -51,7 +51,7 @@ async def main():
     base_name = 'last_place_table'
     connection = database_utils.connect_to_db(DB_PATH)
     last_place_table = database_utils.create_table(connection, base_name)
-    measurement_logs_table = database_utils.create_measurement_logs_table(connection, 'sensor_logs', last_place_table, 'lux_melanopic')
+    measurement_logs_table = database_utils.create_measurement_logs_table(connection, 'sensor_logs', last_place_table)
     print(f"Table created: {last_place_table}")
 
     start_time = datetime.now()

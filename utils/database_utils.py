@@ -89,7 +89,7 @@ def get_user_data(connection: sqlite3.Connection, table_name: str, user_id: int)
     else:
         return None
     
-def create_measurement_logs_table(connection: sqlite3.Connection, logs_table_name: str, users_table_name: str, measurement_name: str) -> None:
+def create_measurement_logs_table(connection: sqlite3.Connection, logs_table_name: str, users_table_name: str) -> None:
     """Create a table for measurement logs associated with users."""
     cursor = connection.cursor()
     
@@ -99,7 +99,6 @@ def create_measurement_logs_table(connection: sqlite3.Connection, logs_table_nam
         log_id INTEGER PRIMARY KEY,
         user_id INTEGER,
         timestamp TIMESTAMP,
-        {measurement_name} REAL,
         FOREIGN KEY (user_id) REFERENCES {users_table_name} (user_id)
     )
     ''')
@@ -107,14 +106,31 @@ def create_measurement_logs_table(connection: sqlite3.Connection, logs_table_nam
     connection.commit()
     return logs_table_name
 
-def insert_measurement_log(connection: sqlite3.Connection, logs_table_name: str,  measurement_name: str, user_id: int, timestamp: datetime, value: float) -> None:
-    """Insert a new measurement log entry for a user."""
+def add_measurement_column(connection: sqlite3.Connection, logs_table_name: str, column_name: str) -> None:
+    """Dynamically add a new measurement column to the logs table if it does not exist."""
     cursor = connection.cursor()
+    cursor.execute(f"PRAGMA table_info({logs_table_name})")
+    columns = [info[1] for info in cursor.fetchall()]
+    if column_name not in columns:
+        cursor.execute(f"ALTER TABLE {logs_table_name} ADD COLUMN {column_name} REAL")
+        connection.commit()
+
+def insert_measurement_log(connection: sqlite3.Connection, logs_table_name: str,  measurements: dict, user_id: int, timestamp: datetime) -> None:
+    """Insert a new measurement log entry for a user."""
+    for measurement_name, measurement_value in measurements.items():
+        add_measurement_column(connection, logs_table_name, measurement_name)
+
+    cursor = connection.cursor()
+
+    # Prepare the columns and their corresponding values
+    columns = ", ".join(measurements.keys())
+    placeholders = ", ".join(["?"] * len(measurements))
+    values = list(measurements.values())
     
     cursor.execute(f'''
-    INSERT INTO {logs_table_name} (user_id, timestamp, {measurement_name})
-    VALUES (?, ?, ?)
-    ''', (user_id, timestamp, value))
+    INSERT INTO {logs_table_name} (user_id, timestamp, {columns})
+    VALUES (?, ?, {placeholders})
+    ''', (user_id, timestamp, *values))
     
     connection.commit()
 

@@ -17,9 +17,11 @@ from utils.database_utils import insert_or_update_user_last_place, get_user_data
 
 
 def assemble_data(connection: sqlite3.Connection, measurement_log_table_name: str, user_id: int, data: list):
-    measurement_name = 'lux_melanopic'
+    exclude_keys = {'id', 'company_id', 'user_id', 'device_id', 'log_type', 'log_time', 'body_part', 'from_service', 'state'}
     for log in data:
-        insert_measurement_log(connection, measurement_log_table_name, measurement_name, user_id, log["log_time"], log[measurement_name])
+        # Extract all measurement names and values from the log
+        measurement_values = {key: value for key, value in log.items() if key not in exclude_keys}
+        insert_measurement_log(connection, measurement_log_table_name, measurement_values, user_id, log["log_time"])
 
 
 async def run_example(session: aiohttp.ClientSession, connection: sqlite3.Connection, user_id: int, user_table_name: str, measurement_log_table_name: str):
