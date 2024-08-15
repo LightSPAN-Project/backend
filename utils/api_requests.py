@@ -1,4 +1,6 @@
 import os
+import aiohttp
+import asyncio
 from typing import List
 from requests import get, post
 
@@ -23,15 +25,17 @@ def get_user_by_id(user_id: int):
     return get(f"{URL}/v1/users/{user_id}", headers=get_headers()).json()
 
 
-def get_user_actigraphy_data(user_id: int, limit: int = 10, starting_after: str = None):
-    return get(
-        f"{URL}/v1/users/{user_id}/actigraphy_data",
-        headers=get_headers(),
-        params={
+async def get_user_actigraphy_data(session: aiohttp.ClientSession, user_id: int, limit: int = 10, starting_after: str = None):
+    parameters = {
             "limit": limit,
             "starting_after": starting_after,
-        },
-    ).json()
+        }
+    async with session.get(
+        f"{URL}/v1/users/{user_id}/actigraphy_data",
+        headers=get_headers(),
+        params={k: v for k, v in parameters.items() if v is not None},
+    ) as response:
+        return await response.json()
 
 
 def create_patient(payload: dict) -> dict:

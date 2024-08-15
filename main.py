@@ -4,6 +4,8 @@ from get_patient_actigraphy_data import run_example
 from utils import database_utils
 from server import run
 from datetime import datetime
+import aiohttp
+import asyncio
 
 BACKEND_DIR_NAME = 'backend_data'
 DATABASE_NAME = 'backend.db'
@@ -39,11 +41,8 @@ def create_backend_db():
     connection = database_utils.connect_to_db(db_path)
 
 
-def main():
+async def main():
     print("main")
-    #run_example()
-    
-if __name__ == "__main__":
     #run()
 
     create_backend_directory()
@@ -57,13 +56,18 @@ if __name__ == "__main__":
 
     start_time = datetime.now()
     print(start_time)
-    for i in range(1720, 1870):
-        run_example(connection, i, last_place_table, measurement_logs_table)
-        print(f"{i} done")
-    
-    for i in range(1887, 2136):
-        run_example(connection, i, last_place_table, measurement_logs_table)
-        print(f"{i} done")
+
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for i in range(1720, 1870):
+            task = asyncio.create_task(run_example(session, connection, i, last_place_table, measurement_logs_table))
+            tasks.append(task)
+
+        for i in range(1887, 2136):
+            task = asyncio.create_task(run_example(session, connection, i, last_place_table, measurement_logs_table))
+            tasks.append(task)
+
+        await asyncio.gather(*tasks)
 
     end_time = datetime.now()
 
@@ -73,4 +77,7 @@ if __name__ == "__main__":
 
     #run_example(connection, 1638, last_place_table, measurement_logs_table)
     #run_example(connection, 1637, last_place_table, measurement_logs_table)
+    
+if __name__ == "__main__":
+    asyncio.run(main())
 

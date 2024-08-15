@@ -4,6 +4,8 @@ import os
 import utils
 import sqlite3
 from datetime import datetime
+import random
+import aiohttp
 
 folder = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 root = folder[0 : (len(folder) - len("examples"))]
@@ -20,7 +22,7 @@ def assemble_data(connection: sqlite3.Connection, measurement_log_table_name: st
         insert_measurement_log(connection, measurement_log_table_name, measurement_name, user_id, log["log_time"], log[measurement_name])
 
 
-def run_example(connection: sqlite3.Connection, user_id: int, user_table_name: str, measurement_log_table_name: str):
+async def run_example(session: aiohttp.ClientSession, connection: sqlite3.Connection, user_id: int, user_table_name: str, measurement_log_table_name: str):
     start_time = datetime.now()
     limit = 480
 
@@ -33,7 +35,7 @@ def run_example(connection: sqlite3.Connection, user_id: int, user_table_name: s
         latest_block = None
         latest_data_size = 0
 
-    response = get_user_actigraphy_data(user_id, limit, latest_block)
+    response = await get_user_actigraphy_data(session, user_id, limit, latest_block)
     
     data = response["data"]
 
