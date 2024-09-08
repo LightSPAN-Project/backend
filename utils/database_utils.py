@@ -1,6 +1,8 @@
 import sqlite3
 import datetime
 from typing import Optional, Tuple
+from firebase_admin import firestore
+
 
 def connect_to_db(db_name: str) -> sqlite3.Connection:
     """Connect to the SQLite database and return the connection object."""
@@ -137,3 +139,98 @@ def insert_measurement_log(connection: sqlite3.Connection, logs_table_name: str,
 def close_connection(connection: sqlite3.Connection) -> None:
     """Close the connection to the database."""
     connection.close()
+
+
+async def get_user_data_firestore(db: firestore.AsyncClient, collection_name: str, user_id: int) -> Optional[Tuple[Optional[str], Optional[int]]]:
+    """
+    Retrieve 'starting_after' and 'data_size' values for a given user_id from Firestore.
+    
+    Args:
+        db (firestore.Client): The Firestore client.
+        collection_name (str): The name of the Firestore collection.
+        user_id (int): The user's ID.
+    
+    Returns:
+        Optional[Tuple[Optional[str], Optional[int]]]: A tuple containing 'starting_after' and 'data_size', or None if not found.
+    """
+    # Reference to the user's document within the collection
+    user_doc_ref = db.collection(collection_name).document(str(user_id))
+    
+    # Get the document
+    doc = await user_doc_ref.get()
+    
+    if doc.exists:
+        # Extract 'starting_after' and 'data_size' from the document
+        data = doc.to_dict()
+        starting_after = data.get('starting_after')
+        data_size = data.get('data_size')
+        return starting_after, data_size
+    else:
+        return None
+    
+
+async def insert_or_update_user_last_place_firestore(db: firestore.AsyncClient, collection_name: str, user_id: int, starting_after: str, data_size: int) -> None:
+    """
+    Insert a new user or update the existing user's 'starting_after' and 'data_size' in Firestore.
+    
+    Args:
+        db (firestore.Client): The Firestore client.
+        collection_name (str): The name of the Firestore collection.
+        user_id (int): The user's ID.
+        starting_after (str): The value of 'starting_after' to be inserted or updated.
+        data_size (int): The value of 'data_size' to be inserted or updated.
+    """
+    # Reference to the user's document within the collection
+    user_doc_ref = db.collection(collection_name).document(str(user_id))
+    
+    # Check if the document exists
+    doc = await user_doc_ref.get()
+    
+    if doc.exists:
+        # Update the existing user's 'starting_after' and 'data_size'
+        await user_doc_ref.update({
+            'starting_after': starting_after,
+            'data_size': data_size
+        })
+    else:
+        # Insert a new document for the user
+        await user_doc_ref.set({
+            'starting_after': starting_after,
+            'data_size': data_size
+        })
+
+
+async def insert_measurement_log_firestore(db: firestore.AsyncClient, measurements: dict, user_id: int, timestamp: datetime) -> None:
+    """
+    Insert a new measurement log entry for a user into Firestore, organized under 'user_id' documents in 'actigraphy_data' collection.
+
+    Args:
+        db (firestore.Client): The Firestore client.
+        measurements (dict): A dictionary of measurement names and values.
+        user_id (int): The user's ID.
+        timestamp (datetime): The timestamp of the log entry.
+    """
+
+    # Check if timestamp is a string, convert it to datetime if necessary
+    if isinstance(timestamp, str):
+        # Parse the timestamp string into a datetime object
+        timestamp = datetime.datetime.fromisoformat(timestamp)
+
+    # Format the timestamp as a string to use as a document ID (Firestore doesn't support datetime directly as IDs)
+    timestamp_mil = int(timestamp.timestamp() * 1000)
+
+    # Structure: actigraphy_data -> user_id -> measurements -> timestamp
+    user_doc_ref = db.collection('actigraphy_data').document(str(user_id))
+    measurement_doc_ref = user_doc_ref.collection('measurements').document(str(timestamp_mil))
+
+    # Create the document data
+    log_data = {
+        'timestamp': timestamp_mil,
+        **measurements  # Unpack the measurements dictionary into the log data
+    }
+
+    # Add or update the document with the timestamp under the user's measurements collection
+    await measurement_doc_ref.set(log_data)
+
+    # Add or update the 'userId' field in the user's document
+    await user_doc_ref.set({'userId': user_id}, merge=True)  # merge=True to avoid overwriting existing fields

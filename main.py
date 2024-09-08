@@ -6,11 +6,16 @@ from server import run
 from datetime import datetime
 import aiohttp
 import asyncio
+import firebase_admin
+from firebase_admin import firestore, credentials
 
 BACKEND_DIR_NAME = 'backend_data'
 DATABASE_NAME = 'backend.db'
 main_directory = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.join(main_directory, BACKEND_DIR_NAME)
+
+credentials_path = 'lightspan-513da-ceeca0168093.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
 
 DB_PATH = os.path.join(backend_dir, DATABASE_NAME)
 
@@ -48,6 +53,11 @@ async def main():
     create_backend_directory()
     create_backend_db()
 
+    cred = credentials.Certificate('lightspan-513da-ceeca0168093.json')
+
+    app = firebase_admin.initialize_app(cred)
+    db = firestore.AsyncClient()
+
     base_name = 'last_place_table'
     connection = database_utils.connect_to_db(DB_PATH)
     last_place_table = database_utils.create_table(connection, base_name)
@@ -59,13 +69,18 @@ async def main():
 
     async with aiohttp.ClientSession() as session:
         tasks = []
-        for i in range(1720, 1870):
-            task = asyncio.create_task(run_example(session, connection, i, last_place_table, measurement_logs_table))
-            tasks.append(task)
 
-        for i in range(1887, 2136):
-            task = asyncio.create_task(run_example(session, connection, i, last_place_table, measurement_logs_table))
-            tasks.append(task)
+        task1 = asyncio.create_task(run_example(db, session, connection, 1723, last_place_table, measurement_logs_table))
+        task2 = asyncio.create_task(run_example(db, session, connection, 1724, last_place_table, measurement_logs_table))
+        tasks.append(task1)
+        tasks.append(task2)
+        # for i in range(1720, 1870):
+        #     task = asyncio.create_task(run_example(db, session, connection, i, last_place_table, measurement_logs_table))
+        #     tasks.append(task)
+
+        # for i in range(1887, 2136):
+        #     task = asyncio.create_task(run_example(db, session, connection, i, last_place_table, measurement_logs_table))
+        #     tasks.append(task)
 
         await asyncio.gather(*tasks)
 
