@@ -14,7 +14,8 @@ DATABASE_NAME = 'backend.db'
 main_directory = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.join(main_directory, BACKEND_DIR_NAME)
 
-credentials_path = 'lightspan-513da-ceeca0168093.json'
+FIREBASE_ADMIN_JSON = 'lightspan-513da-ceeca0168093.json'
+credentials_path = os.path.join(main_directory, FIREBASE_ADMIN_JSON)
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
 
 DB_PATH = os.path.join(backend_dir, DATABASE_NAME)
