@@ -1,5 +1,5 @@
 import sqlite3
-import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 from firebase_admin import firestore
 
@@ -11,7 +11,7 @@ def connect_to_db(db_name: str) -> sqlite3.Connection:
 
 def create_table_with_timestamp(connection: sqlite3.Connection, base_name: str) -> str:
     """Create a table with a custom name that includes a timestamp."""
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     table_name = f"{base_name}_{timestamp}"
     cursor = connection.cursor()
     cursor.execute(f'''
@@ -213,24 +213,29 @@ async def insert_measurement_log_firestore(db: firestore.AsyncClient, measuremen
 
     # Check if timestamp is a string, convert it to datetime if necessary
     if isinstance(timestamp, str):
-        # Parse the timestamp string into a datetime object
-        timestamp = datetime.datetime.fromisoformat(timestamp)
+        # Parse the timestamp string assuming it's in GMT+8
+        local_time = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+        # Set the timezone to GMT+8
+        local_time = local_time.replace(tzinfo=timezone(timedelta(hours=8)))
+        # Convert the local time (GMT+8) to UTC
+        timestamp = local_time.astimezone(timezone.utc)
 
     # Format the timestamp as a string to use as a document ID (Firestore doesn't support datetime directly as IDs)
     timestamp_mil = int(timestamp.timestamp() * 1000)
 
-    # Structure: actigraphy_data -> user_id -> measurements -> timestamp
-    user_doc_ref = db.collection('actigraphy_data').document(str(user_id))
-    measurement_doc_ref = user_doc_ref.collection('measurements').document(str(timestamp_mil))
+    if timestamp_mil >= 1736179200000:
+        # Structure: actigraphy_data -> user_id -> measurements -> timestamp
+        user_doc_ref = db.collection('actigraphy_data').document(str(user_id))
+        measurement_doc_ref = user_doc_ref.collection('measurements').document(str(timestamp_mil))
 
-    # Create the document data
-    log_data = {
-        'timestamp': timestamp_mil,
-        **measurements  # Unpack the measurements dictionary into the log data
-    }
+        # Create the document data
+        log_data = {
+            'timestamp': timestamp_mil,
+            **measurements  # Unpack the measurements dictionary into the log data
+        }
 
-    # Add or update the document with the timestamp under the user's measurements collection
-    await measurement_doc_ref.set(log_data)
+        # Add or update the document with the timestamp under the user's measurements collection
+        await measurement_doc_ref.set(log_data)
 
-    # Add or update the 'userId' field in the user's document
-    await user_doc_ref.set({'userId': user_id}, merge=True)  # merge=True to avoid overwriting existing fields
+        # Add or update the 'userId' field in the user's document
+        await user_doc_ref.set({'userId': user_id}, merge=True)  # merge=True to avoid overwriting existing fields
