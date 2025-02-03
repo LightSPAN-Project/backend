@@ -19,16 +19,18 @@ from utils.database_utils import insert_or_update_user_last_place_firestore, get
 
 async def assemble_data(db: firestore.AsyncClient, connection: sqlite3.Connection, measurement_log_table_name: str, user_id: int, data: list):
     exclude_keys = {'id', 'company_id', 'user_id', 'device_id', 'log_type', 'log_time', 'body_part', 'from_service', 'state'}
-    include_keys = {'lux_melanopic'}
+    include_keys = {'lux_photopic'}
     for log in data:
         # Extract all measurement names and values from the log
         measurement_values = {key: value for key, value in log.items() if key in include_keys}
+        logtime = log["log_time"]
         await insert_measurement_log_firestore(db, measurement_values, user_id, log["log_time"])
 
 
 async def run_example(db: firestore.AsyncClient, session: aiohttp.ClientSession, connection: sqlite3.Connection, user_id: int, user_table_name: str, measurement_log_table_name: str):
     start_time = datetime.now()
-    limit = 10
+    limit = 1000
+    max_call = 10
 
     latest_user_data = await get_user_data_firestore(db, user_table_name, user_id)
 
@@ -43,6 +45,8 @@ async def run_example(db: firestore.AsyncClient, session: aiohttp.ClientSession,
     
     data = response["data"]
 
+    lenlen = len(data)
+
     next_block_name = response["starting_after"]
 
     if len(data) > latest_data_size:
@@ -50,11 +54,13 @@ async def run_example(db: firestore.AsyncClient, session: aiohttp.ClientSession,
         await assemble_data(db, connection, measurement_log_table_name, user_id, data[starting_index:])
         latest_data_size = len(data)
 
-        while next_block_name is not None and len(data) > 0:
+        call_count = 0  # Initialize call counter
+        while next_block_name is not None and len(data) > 0 and call_count < max_call:
             print(next_block_name)
             print(len(data))
+            print(user_id)
 
-            response = await get_user_actigraphy_data(user_id, limit, next_block_name)
+            response = await get_user_actigraphy_data(session, user_id, limit, next_block_name)
             data = response["data"]
             if len(data) == 0:
                 break
@@ -65,11 +71,15 @@ async def run_example(db: firestore.AsyncClient, session: aiohttp.ClientSession,
             next_block_name = response["starting_after"]
 
             await assemble_data(db, connection, measurement_log_table_name, user_id, data)
+            call_count += 1  # Increment call counter
 
     end_time = datetime.now()
     elapsed_time = end_time - start_time
 
     print(f"api elapsed time: {elapsed_time}")
+
+    if latest_data_size == limit:
+        latest_data_size = limit - 1;
 
     start_time = datetime.now()
     await insert_or_update_user_last_place_firestore(db, user_table_name, user_id, latest_block, latest_data_size)
